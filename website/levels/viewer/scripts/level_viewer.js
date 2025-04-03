@@ -44,6 +44,7 @@ import textureTriggerURL from '../textures/trigger.png'
 let userID = undefined;
 
 let clock, camera, scene, renderer, controls;
+let allObjects = [];
 let animatedObjects = []
 let animationTime = 0.0
 let textureLoader;
@@ -62,6 +63,7 @@ let particlesPositions = [];
 let particlesDirections = [];
 let removedTimes = [];
 let blob;
+let interactionRay;
 
 init();
 
@@ -109,6 +111,10 @@ function init()
 	document.getElementById('location-button').addEventListener('click', copyLocationURLPressed);
 	document.getElementById('download-button').addEventListener('click', exportLevelAsGLTF);
 	document.getElementById("fog-button").addEventListener("click", toggleFog);
+
+	interactionRay = new THREE.Raycaster();
+	interactionRay.layers.set( 1 );
+	document.addEventListener('keydown', triggerInteraction);
 
 	THREE.ColorManagement.enabled = true;
 
@@ -778,6 +784,8 @@ function init()
 						object.initialRotation = object.quaternion.clone()
 						object.isGroup = true
 
+						allObjects.push(object);
+
 						loadLevelNodes(node.levelNodeGroup.childNodes, object)
 
 						//realComplexity += 1
@@ -968,8 +976,74 @@ function init()
 						newMaterial.uniforms.worldNormalMatrix.value = normalMatrix
 
 						object.isTrigger = true;
-						object.visible = false;
-						
+						object.visible = true;
+						object.trigger = (interactionSources) => {
+							const targets = node.levelNodeTrigger.triggerTargets;
+							const sources = node.levelNodeTrigger.triggerSources;
+							if (targets && sources) {
+								if (
+									(interactionSources.includes("HAND") && sources.some(s => s.triggerSourceBasic.type == root.COD.Types.TriggerSourceBasic.Type.HAND)) ||
+									(interactionSources.includes("HEAD") && sources.some(s => s.triggerSourceBasic.type == root.COD.Types.TriggerSourceBasic.Type.HEAD)) ||
+									(interactionSources.includes("GRAPPLE") && sources.some(s => s.triggerSourceBasic.type == root.COD.Types.TriggerSourceBasic.Type.GRAPPLE)) ||
+									(interactionSources.includes("FEET") && sources.some(s => s.triggerSourceBasic.type == root.COD.Types.TriggerSourceBasic.Type.FEET)) ||
+									(interactionSources.includes("BLOCK") && sources.some(s => s.triggerSourceBasic.type == root.COD.Types.TriggerSourceBasic.Type.BLOCK))
+								) {
+									for (const target of targets) {
+										if (target.triggerTargetAnimation?.objectID && target.triggerTargetAnimation?.mode) {
+											const targetObject = allObjects[target.triggerTargetAnimation.objectID - 1];
+											console.log(targetObject);
+											const mode = target.triggerTargetAnimation.mode;
+											const reverse = target.triggerTargetAnimation.reverse;
+											const loop = target.triggerTargetAnimation.loop;
+											if (targetObject.animation) {
+												targetObject.animation.isLoop = loop;
+												switch (mode) {
+													case root.COD.Types.TriggerTargetAnimation.Mode.STOP:
+														targetObject.animation.isPlaying = false;
+														break;
+
+													case root.COD.Types.TriggerTargetAnimation.Mode.START:
+														targetObject.animation.isPlaying = true;
+														targetObject.animation.currentDirection = reverse ? -1 : 1;
+														break;
+
+													case root.COD.Types.TriggerTargetAnimation.Mode.TOGGLE:
+														targetObject.animation.isPlaying = true;
+														break;
+
+													case root.COD.Types.TriggerTargetAnimation.Mode.TOGGLE_REVERSE:
+														targetObject.animation.currentDirection *= -1;
+														targetObject.animation.isPlaying = true;
+														break;
+
+													case root.COD.Types.TriggerTargetAnimation.Mode.RESTART:
+														targetObject.position.copy(targetObject.initialPosition);
+														targetObject.rotation.copy(targetObject.initialRotation);
+														targetObject.animation.isPlaying = true;
+														targetObject.animation.currentDirection = 1;
+														targetObject.animation.currentTime = 0;
+														targetObject.animation.currentFrameIndex = 0;
+														break;
+
+													case root.COD.Types.TriggerTargetAnimation.Mode.RESET:
+														targetObject.position.copy(targetObject.initialPosition);
+														targetObject.rotation.copy(targetObject.initialRotation);
+														targetObject.animation.isPlaying = false;
+														targetObject.animation.currentDirection = 1;
+														targetObject.animation.currentTime = 0;
+														targetObject.animation.currentFrameIndex = 0;
+														break;
+
+													default:
+														break;
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+
 						realComplexity += 5
 					}
 					else if(node.levelNodeStart)
@@ -1140,13 +1214,22 @@ function init()
 
 					if(object !== undefined)
 					{
+						if (!object.isGroup) { // for raycast
+							allObjects.push(object); // groups done separately so they are before their children
+							object.layers.enable(1);
+						}
+
 						if (object.material?.uniforms) object.material.uniforms.worldMatrix = { value: new THREE.Matrix4().copy(object.matrixWorld) }
 						//Attach data of the first animation to the object (which is all the initial animation system supports anyway)
-						if(node.animations && node.animations.length > 0 && node.animations[0].frames && node.animations[0].frames.length > 0 && node.activeAnimation === 0)
+						if(node.animations && node.animations.length > 0 && node.animations[0].frames && node.animations[0].frames.length > 0)
 						{
-							object.animation = node.animations[0]
-							object.animation.currentFrameIndex = 0
-							animatedObjects.push(object)
+							object.animation = node.animations[0];
+							object.animation.currentFrameIndex = 0;
+							object.animation.currentTime = 0;
+							object.animation.isPlaying = node.activeAnimation === 0;
+							object.animation.currentDirection = 1;
+							object.animation.isLoop = true;
+							animatedObjects.push(object);
 						}
 					}
 				}
@@ -1475,56 +1558,108 @@ function showOptionsDialog(title, subtitle, options, onOk)
 	}
 }
 
-function updateObjectAnimation(object, time)
-{
-	let animation = object.animation
-	const animationFrames = animation.frames
-	const relativeTime = (time * object.animation.speed) % animationFrames[animationFrames.length - 1].time;
-	if (parseInt(document.getElementById('time-slider').max) < animationFrames[animationFrames.length - 1].time) {
-		document.getElementById('time-slider').max = `${animationFrames[animationFrames.length - 1].time}`
+function updateObjectAnimation(object, time) {
+	let animation = object.animation;
+	const animationFrames = animation.frames;
+	const animationDuration =
+	  animationFrames[animationFrames.length - 1].time;
+	let relativeTime =
+	  (time * object.animation.speed) % animationDuration;
+ 
+	if (parseInt(document.getElementById("time-slider").max) < animationDuration) {
+	  document.getElementById("time-slider").max = `${animationDuration}`;
 	}
-	
-	//Find frames to blend between
-	let oldFrame = animationFrames[animation.currentFrameIndex];
-	let newFrameIndex = animation.currentFrameIndex + 1;
-	if(newFrameIndex >= animationFrames.length) newFrameIndex = 0;
-	let newFrame = animationFrames[newFrameIndex];
-	
-	let loopCounter = 0; //Used to prevent endless loop with only one frame or all having the same time
-	while(loopCounter <= animationFrames.length)
-	{
-		oldFrame = animationFrames[animation.currentFrameIndex];
-		newFrameIndex = animation.currentFrameIndex + 1;
-		if(newFrameIndex >= animationFrames.length) newFrameIndex = 0;
-		newFrame = animationFrames[newFrameIndex];
-		
-		if(oldFrame.time <= relativeTime && newFrame.time > relativeTime) break;
-		animation.currentFrameIndex += 1;
-		if(animation.currentFrameIndex >= animationFrames.length - 1) animation.currentFrameIndex = 0;
-		
-		loopCounter += 1;
+ 
+	let oldFrame, newFrame, newFrameIndex;
+ 
+	if (animation.direction === 1) {
+	  // Forward animation
+	  let loopCounter = 0; // Prevent endless loop
+	  do {
+		 oldFrame = animationFrames[animation.currentFrameIndex];
+		 newFrameIndex = animation.currentFrameIndex + 1;
+		 if (newFrameIndex >= animationFrames.length) newFrameIndex = 0;
+		 newFrame = animationFrames[newFrameIndex];
+ 
+		 if (oldFrame.time <= relativeTime && newFrame.time > relativeTime) {
+			break;
+		 }
+ 
+		 animation.currentFrameIndex = (animation.currentFrameIndex + 1) % animationFrames.length;
+		 loopCounter++;
+ 
+		 if (loopCounter > animationFrames.length) {
+			break; // Escape if we've looped through all frames
+		 }
+	  } while (true);
+	} else {
+	  // Backward animation
+	  let loopCounter = 0; // Prevent endless loop
+	  do {
+		 oldFrame = animationFrames[animation.currentFrameIndex];
+		 newFrameIndex = animation.currentFrameIndex - 1;
+		 if (newFrameIndex < 0) newFrameIndex = animationFrames.length - 1;
+		 newFrame = animationFrames[newFrameIndex];
+ 
+		 if (oldFrame.time >= relativeTime && newFrame.time < relativeTime) {
+			break;
+		 }
+ 
+		 animation.currentFrameIndex = (animation.currentFrameIndex - 1 + animationFrames.length) % animationFrames.length;
+		 loopCounter++;
+		 if (loopCounter > animationFrames.length) {
+			break; // Escape if we've looped through all frames
+		 }
+	  } while (true);
 	}
-
-	let factor = 0.0
-	let timeDiff = (newFrame.time - oldFrame.time);
-	if(Math.abs(timeDiff) > 0.00000001) //Prevent dividing by 0 if time of both frames is equal
-	{
-		factor = (relativeTime - oldFrame.time) / timeDiff;
+ 
+	let factor = 0.0;
+	let timeDiff = newFrame.time - oldFrame.time;
+ 
+	if (animation.direction === -1) {
+	  timeDiff = oldFrame.time - newFrame.time; // Reverse the time difference
 	}
-
-	const oldRotation = new THREE.Quaternion( -oldFrame.rotation.x, oldFrame.rotation.y, -oldFrame.rotation.z, oldFrame.rotation.w )
-	const newRotation = new THREE.Quaternion( -newFrame.rotation.x, newFrame.rotation.y, -newFrame.rotation.z, newFrame.rotation.w )
-	const finalRotation = new THREE.Quaternion()
-	finalRotation.slerpQuaternions(oldRotation, newRotation, factor)
-
-	const oldPosition = new THREE.Vector3( -oldFrame.position.x, oldFrame.position.y, -oldFrame.position.z )
-	const newPosition = new THREE.Vector3( -newFrame.position.x, newFrame.position.y, -newFrame.position.z )
-	const finalPosition = new THREE.Vector3()
-	finalPosition.lerpVectors(oldPosition, newPosition, factor)
-
-	object.position.copy(object.initialPosition).add(finalPosition.applyQuaternion(object.initialRotation))
-	object.quaternion.multiplyQuaternions(object.initialRotation, finalRotation)
-}
+	if (Math.abs(timeDiff) > 0.00000001) {
+	  factor = (relativeTime - oldFrame.time) / timeDiff;
+	  if (animation.direction === -1) {
+		 factor = (relativeTime - oldFrame.time) / timeDiff;
+	  }
+	}
+ 
+	const oldRotation = new THREE.Quaternion(
+	  -oldFrame.rotation.x,
+	  oldFrame.rotation.y,
+	  -oldFrame.rotation.z,
+	  oldFrame.rotation.w
+	);
+	const newRotation = new THREE.Quaternion(
+	  -newFrame.rotation.x,
+	  newFrame.rotation.y,
+	  -newFrame.rotation.z,
+	  newFrame.rotation.w
+	);
+	const finalRotation = new THREE.Quaternion();
+	finalRotation.slerpQuaternions(oldRotation, newRotation, factor);
+ 
+	const oldPosition = new THREE.Vector3(
+	  -oldFrame.position.x,
+	  oldFrame.position.y,
+	  -oldFrame.position.z
+	);
+	const newPosition = new THREE.Vector3(
+	  -newFrame.position.x,
+	  newFrame.position.y,
+	  -newFrame.position.z
+	);
+	const finalPosition = new THREE.Vector3();
+	finalPosition.lerpVectors(oldPosition, newPosition, factor);
+ 
+	object.position
+	  .copy(object.initialPosition)
+	  .add(finalPosition.applyQuaternion(object.initialRotation));
+	object.quaternion.multiplyQuaternions(object.initialRotation, finalRotation);
+ }
+ 
 
 function onWindowResize()
 {
@@ -1560,24 +1695,31 @@ document.getElementById('play-pause').addEventListener('click', function(){
 function animation()
 {
 	const delta = clock.getDelta();
-	if(isSliderDragging)
-	{
-		for (let object of animatedObjects)
-		{
-			updateObjectAnimation(object, parseInt(document.getElementById('time-slider').value))
-		} 
-		animationTime=parseInt(document.getElementById('time-slider').value)
-	}
-	else if (isSliderPlaying)
-	{
-		animationTime += delta;
-		document.getElementById('time-slider').value = animationTime
-	}
+	// if(isSliderDragging)
+	// {
+	// 	for (let object of animatedObjects)
+	// 	{
+	// 		updateObjectAnimation(object, parseInt(document.getElementById('time-slider').value))
+	// 	} 
+	// 	animationTime=parseInt(document.getElementById('time-slider').value)
+	// }
+	// else if (isSliderPlaying)
+	// {
+	// 	animationTime += delta;
+	// 	document.getElementById('time-slider').value = animationTime
+	// }
 	controls.update(delta);
-
 	for(let object of animatedObjects)
 	{
-		updateObjectAnimation(object, animationTime)
+		if (object.animation.isPlaying) {
+			object.animation.currentTime += delta * object.animation.currentDirection;
+			const animationDuration = object.animation.frames ? object.animation.frames[object.animation.frames.length - 1].time : 0;
+			if (!object.animation.isLoop && object.animation.currentTime * object.animation.speed > animationDuration) {
+				object.animation.isPlaying = false;
+				object.animation.currentTime = animationDuration - 0.000001;
+			}
+			updateObjectAnimation(object, object.animation.currentTime)
+		}
 	}
 
 	/*let particleRenderDistance = 1000;
@@ -1604,6 +1746,29 @@ function animation()
 	}*/
 
 	renderer.render(scene, camera);
+}
+
+function triggerInteraction(event) {
+	if (event.code == 'Space') {
+		interactionRay.setFromCamera( new THREE.Vector2(0), camera );
+		let intersects = interactionRay.intersectObjects( scene.children, true );
+
+		for (let intersect of intersects) {
+			if (!intersect.object?.isTrigger) break;
+			intersect.object.trigger(['HAND', 'GRAPPLE']);
+
+			const pointsMaterial = new THREE.PointsMaterial({
+				color: 0x0000ff,
+				size: 5,
+				sizeAttenuation: false
+			});
+			let worldPosition = new THREE.Vector3();
+			camera.getWorldPosition(worldPosition);
+			const pointsGeometry = new THREE.BufferGeometry().setFromPoints([intersect.point]);
+			const points = new THREE.Points(pointsGeometry, pointsMaterial);
+			scene.add(points);
+		}
+	}
 }
 
 function toggleFog()
