@@ -112,28 +112,28 @@ export default {
     },
 
     async listType() {
-      if(this.isInitialLoad && this.loading) return
+      this.loading = false
       this.items = []
       this.nextPage = null
       await this.loadMore()
     },
 
     async difficulty() {
-      if(this.isInitialLoad && this.loading) return
+      this.loading = false
       this.items = []
       this.nextPage = null
       await this.loadMore()
     },
 
     async tag() {
-      if(this.isInitialLoad && this.loading) return
+      this.loading = false
       this.items = []
       this.nextPage = null
       await this.loadMore()
     },
 
     async searchTerm() {
-      if(this.isInitialLoad && this.loading) return
+      this.loading = false
       this.items = []
       this.nextPage = null
       await this.loadMore()
@@ -175,15 +175,6 @@ export default {
     },
 
     async loadMore() {
-      
-      this.activeLoad = {
-        listType: this.listType,
-        difficulty: this.difficulty,
-        tag: this.tag,
-        searchTerm: this.searchTerm,
-        otherUserID: this.otherUserID
-      }
-
       const userStore = useUserStore()
 
       if(this.loading && 
@@ -192,6 +183,14 @@ export default {
         this.tag === this.activeLoad?.tag && 
         this.searchTerm === this.activeLoad?.searchTerm && 
         this.otherUserID === this.activeLoad?.otherUserID) return
+
+      this.activeLoad = {
+        listType: this.listType,
+        difficulty: this.difficulty,
+        tag: this.tag,
+        searchTerm: this.searchTerm,
+        otherUserID: this.otherUserID
+      }
 
       this.loading = true
 
