@@ -84,7 +84,7 @@ export const useUserStore = defineStore('user', {
     },
     async fetchUsersFavorites(serverURL, maxLevelFormatVersion) {
       if (this.accessToken) {
-        const favoriteLevels = await listRequest(serverURL, this.accessToken, 'tab_favorite_levels', null, maxLevelFormatVersion, null, null)
+        const favoriteLevels = await listRequest(serverURL, this.accessToken, 'tab_favorite_levels', null, null, null, null, maxLevelFormatVersion, null, null)
         if (favoriteLevels !== false) {
           this.favoriteLevels = favoriteLevels.map(level => level.identifier);
         }

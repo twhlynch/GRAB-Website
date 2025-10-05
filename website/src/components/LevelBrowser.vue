@@ -36,6 +36,7 @@ export default {
       userID: null,
       difficultyFilter: '',
       tagFilter: '',
+      showUnlisted: false,
       isLoading: false
     }
   },
@@ -139,9 +140,9 @@ export default {
       <LevelTitle v-if="showLevelTitle" :tagString="tagString"/>
     </header>
     <main>
-      <UserTitle v-if="showUserTitle" :other-user-i-d="userID"/>
+      <UserTitle v-if="showUserTitle" :other-user-i-d="userID" :showUnlisted="showUnlisted" @showUnlisted="() => this.showUnlisted = !this.showUnlisted"/>
       <FeaturedLevels v-if="tabActive === 'tab_featured'" @tab-changed="(query) => this.tabChanged(query)"/>
-      <ScrollList v-else :list-type="tabActive" :difficulty="difficultyFilter" :tag="tagFilter" :search-term="searchTerm" :other-user-i-d="userID" @tab-changed="(query) => this.tabChanged(query)" @loaded="loaded"/>
+      <ScrollList v-else :list-type="tabActive" :difficulty="difficultyFilter" :tag="tagFilter" :search-term="searchTerm" :showUnlisted="showUnlisted" :other-user-i-d="userID" @tab-changed="(query) => this.tabChanged(query)" @loaded="loaded"/>
     </main>
     <LegalTerms/>
     <ScrollToTop/>

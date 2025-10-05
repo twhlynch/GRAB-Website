@@ -42,7 +42,7 @@ export default {
   methods: {
     async updateType() {     
       if (this.type) {
-        const result = await listRequest(this.$api_server_url, this.accessToken, `curated_${this.type}`, false, this.$max_level_format_version, false, false)
+        const result = await listRequest(this.$api_server_url, this.accessToken, `curated_${this.type}`, false, false, false, false, this.$max_level_format_version, false, false)
         if (result) {
           this.oldLevelList = result;
           this.levelList = this.oldLevelList.slice();

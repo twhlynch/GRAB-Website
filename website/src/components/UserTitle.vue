@@ -20,7 +20,8 @@ export default {
   },
 
   props: {
-    otherUserID: String
+    otherUserID: String,
+    showUnlisted: Boolean,
   },
 
   computed: {
@@ -154,6 +155,8 @@ export default {
     document.removeEventListener("keydown", this.escapeListener);
   },
 
+  emits: ["showUnlisted"],
+
   watch: {
     otherUserID() {
       this.updateDetails();
@@ -209,6 +212,7 @@ export default {
         <UserModerationTools v-if="loaded && isSuperModerator" :user-info="userInfo" :user-page="true" @handled="didPunishOrReset" @toggle_role="userInfo[$event] = !userInfo[$event]" />
       </div>
     </div>
+    <button v-if="loaded && isModerator" class="show-unlisted-button" @click="this.$emit('showUnlisted');">{{showUnlisted ? "Hide" : "Show"}} Unlisted</button>
   </div>
   <PurchaseHistory v-if="showPurchaseHistory && loaded && isSuperModerator" :userInfo="userInfoAdmin"/>
   <ModerationHistory v-if="showModerationHistory && loaded && isSuperModerator" :userInfo="userInfoAdmin"/>
@@ -380,5 +384,26 @@ export default {
 .copy img {
   height: 1rem;
   width: 1rem;
+}
+.show-unlisted-button {
+  height: 30px;
+  width: 130px;
+  font-weight: bold;
+  background-color: var(--blue);
+  border-radius: 15px;
+  cursor: pointer;
+  float: right;
+  margin-left: auto;
+  margin-top: auto;
+  margin-right: 10px;
+  margin-bottom: 1rem;
+}
+
+@media screen and (max-width: 600px) {
+  .show-unlisted-button {
+    height: 25px;
+    width: 90px;
+    font-size: 0.7rem;
+  }
 }
 </style>

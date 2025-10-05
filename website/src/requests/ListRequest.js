@@ -1,4 +1,15 @@
-export async function listRequest(server, accessToken, listType, difficulty, tag, searchTerm, maxLevelFormatVersion, userID, nextPage) {
+export async function listRequest(
+	server,
+	accessToken,
+	listType,
+	difficulty,
+	tag,
+	searchTerm,
+	showUnlisted,
+	maxLevelFormatVersion,
+	userID,
+	nextPage,
+) {
 	let requestURL = server + 'list?max_format_version=' + maxLevelFormatVersion;
 	let wantsAccessToken = false;
 	if (listType === 'tab_newest') {
@@ -11,6 +22,10 @@ export async function listRequest(server, accessToken, listType, difficulty, tag
 		requestURL += '&type=ok_' + (tag ? tag + '_' : '') + 'newest' + (difficulty ? '_' + difficulty : '');
 	} else if (listType === 'tab_my_levels' || listType === 'tab_other_user') {
 		requestURL += '&user_id=' + userID;
+		if (showUnlisted) {
+			requestURL += '&type=all';
+			wantsAccessToken = true;
+		}
 	} else if (listType === 'tab_favorite_levels') {
 		requestURL = server + 'get_favorite_levels';
 		wantsAccessToken = true;

@@ -108,7 +108,7 @@ export default {
     <h2 v-if="this.currentSection !== this.featured" class="section-title">{{ this.currentSection.hasOwnProperty("title_short") ? this.currentSection.title_short : this.currentSection.title }}</h2>
   </div>
   <div v-if="isList">
-    <ScrollList :listType="this.currentSection.list_key" :difficulty="''" :tag="''" :searchTerm="''" :otherUserID="null" @tab-changed="(query) => this.tabChanged(query)"/>
+    <ScrollList :listType="this.currentSection.list_key" :difficulty="''" :tag="''" :searchTerm="''" :showUnlisted="false" :otherUserID="null" @tab-changed="(query) => this.tabChanged(query)"/>
   </div>
   <div v-else-if="isSection" class="sections">
     <div class="section-element-title" v-for="section in this.currentSection.sections" :key="section.title">
@@ -117,7 +117,7 @@ export default {
         <span class="view-all" @click="this.setSection(section)">View all</span>
       </div>
       <div v-if="shouldRenderSection(section) && section.list_key" class="featured-list-wrapper horizontal-list">
-        <ScrollList :listType="section.list_key" :difficulty="''" :tag="''" :searchTerm="''" :otherUserID="null" :horizontal="true" @tab-changed="(query) => this.tabChanged(query)"/>
+        <ScrollList :listType="section.list_key" :difficulty="''" :tag="''" :searchTerm="''" :showUnlisted="false" :otherUserID="null" :horizontal="true" @tab-changed="(query) => this.tabChanged(query)"/>
       </div>
       <div v-else-if="shouldRenderSection(section) && section.sections">
         <div class="featured-list-wrapper">

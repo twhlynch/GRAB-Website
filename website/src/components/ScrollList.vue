@@ -26,6 +26,7 @@ export default {
     difficulty: String,
     tag: String,
     searchTerm: String,
+    showUnlisted: Boolean,
     otherUserID: String,
     horizontal: {
       type: Boolean,
@@ -137,7 +138,13 @@ export default {
       this.items = []
       this.nextPage = null
       await this.loadMore()
-    }
+    },
+
+    async showUnlisted() {
+      this.loading = false
+      this.items = []
+      this.nextPage = null
+      await this.loadMore()    }
   },
 
   methods: {
@@ -164,7 +171,7 @@ export default {
     },
 
     async loadLevels() {
-      const result = await listRequest(this.$api_server_url, this.accessToken, this.listType, this.difficulty, this.tag, this.searchTerm, this.$max_level_format_version, this.otherUserID? this.otherUserID : this.userID, this.nextPage)
+      const result = await listRequest(this.$api_server_url, this.accessToken, this.listType, this.difficulty, this.tag, this.searchTerm, this.showUnlisted, this.$max_level_format_version, this.otherUserID? this.otherUserID : this.userID, this.nextPage)
       if(result !== false) {
         if(result && result.length > 0) this.nextPage = result[result.length - 1].page_timestamp
         else this.nextPage = null
@@ -177,29 +184,32 @@ export default {
     async loadMore() {
       const userStore = useUserStore()
 
-      if(this.loading && 
-        this.listType === this.activeLoad?.listType && 
-        this.difficulty === this.activeLoad?.difficulty && 
-        this.tag === this.activeLoad?.tag && 
-        this.searchTerm === this.activeLoad?.searchTerm && 
-        this.otherUserID === this.activeLoad?.otherUserID) return
+      if(this.loading &&
+        this.listType === this.activeLoad?.listType &&
+        this.difficulty === this.activeLoad?.difficulty &&
+        this.tag === this.activeLoad?.tag &&
+        this.searchTerm === this.activeLoad?.searchTerm &&
+        this.otherUserID === this.activeLoad?.otherUserID &&
+        this.showUnlisted === this.showUnlisted) return
 
       this.activeLoad = {
         listType: this.listType,
         difficulty: this.difficulty,
         tag: this.tag,
         searchTerm: this.searchTerm,
-        otherUserID: this.otherUserID
+        otherUserID: this.otherUserID,
+        showUnlisted: this.showUnlisted,
       }
 
       this.loading = true
 
       let levels = await this.loadLevels()
-      if(this.activeLoad.searchTerm !== this.searchTerm || 
+      if(this.activeLoad.searchTerm !== this.searchTerm ||
         this.activeLoad.listType !== this.listType ||
-        this.activeLoad.difficulty!== this.difficulty ||
-        this.activeLoad.tag!== this.tag ||
-        this.activeLoad.otherUserID!== this.otherUserID) return
+        this.activeLoad.difficulty !== this.difficulty ||
+        this.activeLoad.tag !== this.tag ||
+        this.activeLoad.otherUserID !== this.otherUserID ||
+        this.activeLoad.showUnlisted !== this.showUnlisted) return
 
       const processedItems = useUserStore().getProcessedList(this.listType);
       if (processedItems) levels = levels.filter(item => !processedItems.includes(item));
