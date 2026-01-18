@@ -130,7 +130,7 @@ export default {
 					search,
 				};
 
-				this.$emit('tabChanged', query);
+				this.tabChanged(query);
 			}
 		},
 	},
@@ -145,6 +145,17 @@ export default {
 	},
 	created() {
 		document.title = 'GRAB Levels';
+
+		const query = this.$route.query;
+		const user_id = query.user_id;
+		const search = query.search;
+		const list = query.list;
+		const tab = query.tab ?? 'tab_newest';
+		const new_query = { tab };
+		if (search) new_query.search = search;
+		if (user_id) new_query.user_id = user_id;
+		if (list) new_query.list = list;
+		this.tabChanged(new_query);
 
 		this.restoreLoginLocation();
 	},
