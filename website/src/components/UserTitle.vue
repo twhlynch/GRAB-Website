@@ -198,6 +198,7 @@ export default {
 					<span v-if="userInfo.grab_plus_active" title="GRAB+" class="grab-plus-icon"></span>
 					<div class="user-buttons">
 						<a v-if="loaded" class="player-button" :href="'player?user_id=' + identifier">View</a>
+						<a v-if="loaded" class="player-button" :href="'levels?tab=tab_user_stats&user_id=' + identifier">Stats</a>
 					</div>
 				</div>
 				<div v-if="count" class="user-tab-count">{{ count }} level{{ count > 1 ? 's' : '' }}</div>
@@ -371,7 +372,7 @@ export default {
 	height: 100%;
 	display: flex;
 	align-items: center;
-	gap: 0.5em;
+	gap: 0.25em;
 	flex-wrap: wrap;
 }
 .user-buttons > div {
