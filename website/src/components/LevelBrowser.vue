@@ -13,6 +13,7 @@ import LevelDifficultySortingControls from './LevelDifficultySortingControls.vue
 import LevelTagSortingControls from './LevelTagSortingControls.vue';
 import LegalTerms from './LegalTerms.vue';
 import ScrollToTop from './ScrollToTop.vue';
+import UserStats from './UserStats.vue';
 
 export default {
 	components: {
@@ -27,6 +28,7 @@ export default {
 		LevelTagSortingControls,
 		LegalTerms,
 		ScrollToTop,
+		UserStats,
 	},
 
 	data() {
@@ -189,10 +191,11 @@ export default {
 			<LevelTitle v-if="showLevelTitle" :tagString="tagString" />
 		</header>
 		<main>
+			<UserStats v-if="tabActive === 'tab_user_stats'" :user-id="userID" />
 			<UserTitle v-if="showUserTitle" :other-user-i-d="userID" />
 			<FeaturedLevels v-if="tabActive === 'tab_featured'" @tab-changed="(query) => this.tabChanged(query)" />
 			<ScrollList
-				v-else
+				v-else-if="tabActive !== 'tab_user_stats'"
 				:list-type="tabActive"
 				:difficulty="difficultyFilter"
 				:tag="tagFilter"

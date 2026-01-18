@@ -82,7 +82,7 @@ export default {
 		<router-link
 			class="user-card"
 			:style="{ 'background-color': cardColor }"
-			:to="{ path: '/levels', query: { tab: 'tab_other_user', user_id: item?.user_id } }"
+			:to="{ path: '/levels', query: { tab: isTopUsers ? 'tab_user_stats' : 'tab_other_user', user_id: item?.user_id } }"
 		>
 			<div class="details">
 				<div v-if="isTopUsers" class="position">{{ 1 + index }}</div>
