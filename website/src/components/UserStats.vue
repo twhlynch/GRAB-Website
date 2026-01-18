@@ -35,11 +35,14 @@ export default {
 		top_10_tiers() {
 			return this.stats.top10_by_difficulty_tier;
 		},
-		raw_tiers() {
-			return this.stats.rating.per_tier_raw;
+		formatted_last_active() {
+			if (!this.stats.last_active_timestamp) return 'N/A';
+			const date = new Date(this.stats.last_active_timestamp);
+			return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 		},
-		weighted_tiers() {
-			return this.stats.rating.per_tier_weighted;
+		finish_percentage() {
+			if (!this.stats.levels_played_unique || this.stats.levels_played_unique === 0) return 0;
+			return Math.round((this.stats.levels_finished_unique / this.stats.levels_played_unique) * 100);
 		},
 	},
 	methods: {
@@ -60,6 +63,11 @@ export default {
 			this.info = info;
 			this.loaded = true;
 		},
+		format_number(value) {
+			let parts = String(value ?? 0).split('.');
+			parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+			return parts.join('.');
+		},
 	},
 	created() {
 		this.get_details();
@@ -69,101 +77,139 @@ export default {
 
 <template>
 	<div class="stats-container" v-if="loaded">
-		<div class="user-info">
-			<div class="user-name">
-				<span>{{ user_name }}</span>
+		<div class="stat-card header-card">
+			<div class="user-info">
+				<span class="user-name">{{ user_name }}</span>
 				<img v-if="is_creator" title="Creator" alt="creator" class="creator-icon" src="./../assets/icons/checkmark.svg" />
 				<span v-if="is_moderator" title="Moderator" class="moderator-icon">M</span>
 				<span v-if="is_developer" title="Developer" class="developer-icon">D</span>
-				<a class="profile-button" :href="'levels?tab=tab_other_user&user_id=' + user_id">Levels</a>
+				<span class="user-score">{{ format_number(Math.floor(stats.rating.total * 10) / 10) }}</span>
+			</div>
+			<a class="profile-button" :href="'levels?tab=tab_other_user&user_id=' + info.user_id"> View Levels </a>
+		</div>
+
+		<div class="stat-card finishes-card">
+			<div class="card-header">
+				<h2>Finishes</h2>
+				<span class="sub-stat"
+					>Firsts: <strong>{{ format_number(stats.first_finisher_count) }}</strong></span
+				>
+			</div>
+			<div class="main-progress-area">
+				<div class="progress-numbers">
+					<span class="big-num">{{ format_number(stats.levels_finished_unique) }}</span>
+					<span class="separator">/</span>
+					<span class="total-num">{{ format_number(stats.levels_played_unique) }} Levels</span>
+				</div>
+				<div class="progress-bar-container">
+					<progress :value="stats.levels_finished_unique" :max="stats.levels_played_unique"></progress>
+					<span class="progress-percent">{{ finish_percentage }}%</span>
+				</div>
+			</div>
+
+			<div class="tier-row">
+				<div class="easy" title="Easy">{{ format_number(finishes_tiers.easy) }}</div>
+				<div class="medium" title="Medium">{{ format_number(finishes_tiers.medium) }}</div>
+				<div class="hard" title="Hard">{{ format_number(finishes_tiers.hard) }}</div>
+				<div class="veryhard" title="Very Hard">{{ format_number(finishes_tiers.veryhard) }}</div>
+				<div class="impossible" title="Impossible">{{ format_number(finishes_tiers.impossible) }}</div>
 			</div>
 		</div>
 
-		<div class="finishes">
-			<h2>Finishes</h2>
-			<span>{{ stats.levels_finished_unique }} / {{ stats.levels_played_unique }} Levels Finished</span>
-			<span>First finishes: {{ stats.first_finisher_count }}</span>
-			<div class="by-tier">
-				<div class="easy">{{ finishes_tiers.easy }}</div>
-				<div class="medium">{{ finishes_tiers.medium }}</div>
-				<div class="hard">{{ finishes_tiers.hard }}</div>
-				<div class="veryhard">{{ finishes_tiers.veryhard }}</div>
-				<div class="impossible">{{ finishes_tiers.impossible }}</div>
-			</div>
-		</div>
-
-		<div class="records">
+		<div class="stat-card records-card">
 			<h2>Records</h2>
-			<div>
-				<div>
-					<span>{{ stats.top1_total }} World Records</span>
-					<div class="by-tier">
-						<div class="easy">{{ top_1_tiers.easy }}</div>
-						<div class="medium">{{ top_1_tiers.medium }}</div>
-						<div class="hard">{{ top_1_tiers.hard }}</div>
-						<div class="veryhard">{{ top_1_tiers.veryhard }}</div>
-						<div class="impossible">{{ top_1_tiers.impossible }}</div>
-					</div>
+			<div class="records-grid">
+				<div class="grid-label">World Records</div>
+				<div class="grid-total">{{ format_number(stats.top1_total) }}</div>
+				<div class="tier-row">
+					<div class="easy">{{ format_number(top_1_tiers.easy) }}</div>
+					<div class="medium">{{ format_number(top_1_tiers.medium) }}</div>
+					<div class="hard">{{ format_number(top_1_tiers.hard) }}</div>
+					<div class="veryhard">{{ format_number(top_1_tiers.veryhard) }}</div>
+					<div class="impossible">{{ format_number(top_1_tiers.impossible) }}</div>
 				</div>
-				<div>
-					<span>{{ stats.top10_total }} Top 10s</span>
-					<div class="by-tier">
-						<div class="easy">{{ top_10_tiers.easy }}</div>
-						<div class="medium">{{ top_10_tiers.medium }}</div>
-						<div class="hard">{{ top_10_tiers.hard }}</div>
-						<div class="veryhard">{{ top_10_tiers.veryhard }}</div>
-						<div class="impossible">{{ top_10_tiers.impossible }}</div>
-					</div>
+
+				<div class="grid-label">Top 10s</div>
+				<div class="grid-total">{{ format_number(stats.top10_total) }}</div>
+				<div class="tier-row">
+					<div class="easy">{{ format_number(top_10_tiers.easy) }}</div>
+					<div class="medium">{{ format_number(top_10_tiers.medium) }}</div>
+					<div class="hard">{{ format_number(top_10_tiers.hard) }}</div>
+					<div class="veryhard">{{ format_number(top_10_tiers.veryhard) }}</div>
+					<div class="impossible">{{ format_number(top_10_tiers.impossible) }}</div>
 				</div>
 			</div>
 		</div>
 
-		<div class="activity">
+		<div class="stat-card activity-card">
 			<h2>Activity</h2>
-			<span>{{ stats.levels_finished_unique }} Levels Finished</span>
-			<span>Active: {{ stats.last_active_timestamp }}</span>
-			<span>Streak: {{ stats.streak_days_current }}</span>
-			<span>Longest Streak: {{ stats.streak_days_longest }}</span>
-		</div>
-
-		<div class="levels">
-			<h2>Levels</h2>
-			<span>Plays: {{ stats.creator_total_plays_received }}</span>
-			<span>Unique plays: {{ stats.creator_total_plays_received_unique }}</span>
-			<span>Finishes: {{ stats.creator_total_finishes_received }}</span>
-			<span>Unique finishes: {{ stats.creator_total_finishes_received_unique }}</span>
-			<span>Likes: {{ stats.creator_total_likes_received }}</span>
-			<span>Tips: {{ stats.creator_total_tips_received_count }}</span>
-
-			<span>Own levels published: {{ stats.publish_verification_total_count }}</span>
-			<span>Others levels published: {{ stats.publish_verification_non_own_count }}</span>
-			<span>Levels rated: {{ stats.ratings_given_unique }}</span>
-			<span>Likes given: {{ stats.likes_given_unique }}</span>
-			<span>Tips given: {{ stats.tips_given_unique }}</span>
-		</div>
-
-		<div class="score">
-			<h2>Score</h2>
-			<div>
-				<div>
-					<span>Raw</span>
-					<div class="by-tier">
-						<div class="easy">{{ Math.floor(raw_tiers.easy) }}</div>
-						<div class="medium">{{ Math.floor(raw_tiers.medium) }}</div>
-						<div class="hard">{{ Math.floor(raw_tiers.hard) }}</div>
-						<div class="veryhard">{{ Math.floor(raw_tiers.veryhard) }}</div>
-						<div class="impossible">{{ Math.floor(raw_tiers.impossible) }}</div>
-					</div>
+			<div class="activity-grid">
+				<div class="activity-item">
+					<span class="act-label">Last Active</span>
+					<span class="act-value">{{ formatted_last_active }}</span>
 				</div>
-				<div>
-					<span>Weighted</span>
-					<div class="by-tier">
-						<div class="easy">{{ Math.floor(weighted_tiers.easy) }}</div>
-						<div class="medium">{{ Math.floor(weighted_tiers.medium) }}</div>
-						<div class="hard">{{ Math.floor(weighted_tiers.hard) }}</div>
-						<div class="veryhard">{{ Math.floor(weighted_tiers.veryhard) }}</div>
-						<div class="impossible">{{ Math.floor(weighted_tiers.impossible) }}</div>
-					</div>
+				<div class="activity-item">
+					<span class="act-label">Days Active</span>
+					<span class="act-value">{{ stats.days_active_unique }} Days</span>
+				</div>
+				<div class="activity-item">
+					<span class="act-label">Current Streak</span>
+					<span class="act-value">{{ stats.streak_days_current }} Days</span>
+				</div>
+				<div class="activity-item">
+					<span class="act-label">Longest Streak</span>
+					<span class="act-value">{{ stats.streak_days_longest }} Days</span>
+				</div>
+			</div>
+		</div>
+
+		<div class="stat-card levels-card">
+			<h2>Creator Stats</h2>
+			<div class="two-col-grid">
+				<div class="stat-pair">
+					<span class="label">Total Plays</span>
+					<span class="value">{{ format_number(stats.creator_total_plays_received) }}</span>
+				</div>
+				<div class="stat-pair">
+					<span class="label">Unique Plays</span>
+					<span class="value">{{ format_number(stats.creator_total_plays_received_unique) }}</span>
+				</div>
+				<div class="stat-pair">
+					<span class="label">Total Finishes</span>
+					<span class="value">{{ format_number(stats.creator_total_finishes_received) }}</span>
+				</div>
+				<div class="stat-pair">
+					<span class="label">Unique Finishes</span>
+					<span class="value">{{ format_number(stats.creator_total_finishes_received_unique) }}</span>
+				</div>
+				<div class="stat-pair">
+					<span class="label">Likes Received</span>
+					<span class="value">{{ format_number(stats.creator_total_likes_received) }}</span>
+				</div>
+				<div class="stat-pair">
+					<span class="label">Tips Received</span>
+					<span class="value">{{ format_number(stats.creator_total_tips_received_count) }}</span>
+				</div>
+			</div>
+			<hr class="divider" />
+			<div class="two-col-grid">
+				<div class="stat-pair">
+					<span class="label">Likes given</span>
+					<span class="value"
+						>{{ format_number(stats.likes_given_unique) }} / {{ format_number(stats.ratings_given_unique) }}</span
+					>
+				</div>
+				<div class="stat-pair">
+					<span class="label">Tips given</span>
+					<span class="value">{{ format_number(stats.tips_given_unique) }}</span>
+				</div>
+				<div class="stat-pair">
+					<span class="label">Own levels published</span>
+					<span class="value">{{ format_number(stats.publish_verification_total_count) }}</span>
+				</div>
+				<div class="stat-pair">
+					<span class="label">Other's levels published</span>
+					<span class="value">{{ format_number(stats.publish_verification_non_own_count) }}</span>
 				</div>
 			</div>
 		</div>
@@ -173,76 +219,199 @@ export default {
 <style scoped>
 /* layout */
 .stats-container {
-	overflow-wrap: break-word;
+	--easy: #2bba84;
+	--medium: #e1c800;
+	--hard: #f19400;
+	--veryhard: #ea0000;
+	--impossible: #aa00aa;
+
 	width: 100%;
-	height: 100%;
+	max-width: 800px;
+	margin: 0 auto;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 1em;
+	gap: 1.25rem;
+	padding: 1rem;
 }
-.stats-container > div {
-	width: 100%;
-	height: fit-content;
-	display: flex;
-	justify-content: space-between;
-	flex-direction: column;
-	align-items: center;
+.stat-card {
 	background-color: var(--hover);
 	border-radius: 15px;
-	padding: 0.5rem 1rem;
-}
-.user-name {
-	width: 100%;
-	font-size: 20px;
-	font-style: bold;
+	padding: 1.5rem;
 	display: flex;
+	flex-direction: column;
+}
+.header-card {
 	flex-direction: row;
 	align-items: center;
-	justify-content: flex-start;
-	gap: 5px;
+	justify-content: space-between;
+	padding: 1rem 1.5rem;
 }
-.by-tier {
+h2 {
+	margin: 0 0 1rem 0;
+	font-size: 1.2rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	font-weight: 700;
+}
+
+.user-info {
 	display: flex;
-	flex-direction: row;
-	gap: 0.5em;
+	align-items: center;
+	gap: 1rem;
+	font-size: 1.2em;
+}
+.user-name {
+	font-size: 1.2em;
+	font-weight: 700;
+}
+
+.card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+}
+.sub-stat {
+	opacity: 0.8;
+}
+
+.main-progress-area {
+	margin-bottom: 1.5rem;
+}
+.progress-numbers {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+.big-num {
+	font-size: 2.5rem;
+	font-weight: 800;
+	line-height: 1;
+}
+.separator {
+	font-size: 1.5rem;
+}
+.total-num {
+	font-size: 1.2rem;
+}
+
+.progress-bar-container {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+}
+.progress-percent {
+	font-weight: bold;
+}
+
+progress[value] {
+	flex-grow: 1;
+	height: 12px;
+	appearance: none;
+	border: none;
+	border-radius: 12px;
+	overflow: hidden;
+}
+progress[value]::-webkit-progress-bar {
+	background-color: var(--red);
+}
+progress[value]::-webkit-progress-value {
+	background-color: var(--green);
+}
+
+.tier-row {
+	display: flex;
+	gap: 0.75rem;
+	justify-content: space-between;
 	> div {
-		background-color: var(--hover);
-		width: 3rem;
-		height: 3rem;
+		flex: 1;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 15px;
-	}
-	.impossible {
-		background-color: #7f007fa0;
-	}
-	.veryhard {
-		background-color: #ea0000a0;
-	}
-	.hard {
-		background-color: #f19400a0;
-	}
-	.medium {
-		background-color: #e1c800a0;
-	}
-	.easy {
-		background-color: #2bba84a0;
+		border-radius: 30px;
+		font-weight: 800;
+		color: #fff;
+		height: 2.5rem;
+		font-size: 1.1rem;
 	}
 }
-.records,
-.score {
-	> div {
-		width: 100%;
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-around;
-		gap: 5px;
-		flex-wrap: wrap;
-	}
+
+.easy {
+	background-color: var(--easy);
+}
+.medium {
+	background-color: var(--medium);
+}
+.hard {
+	background-color: var(--hard);
+}
+.veryhard {
+	background-color: var(--veryhard);
+}
+.impossible {
+	background-color: var(--impossible);
+}
+
+.records-grid {
+	display: grid;
+	grid-template-columns: 120px 50px 1fr;
+	gap: 0.5rem;
+	row-gap: 1.5rem;
+	align-items: center;
+}
+.grid-label {
+	font-weight: 700;
+	font-size: 1.2rem;
+}
+.grid-total {
+	font-weight: 800;
+	font-size: 1.2rem;
+	text-align: center;
+}
+
+.activity-grid {
+	display: flex;
+	justify-content: space-around;
+	background: #fff1;
+	border-radius: 15px;
+	padding: 1rem;
+}
+.activity-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.25rem;
+}
+.act-label {
+	font-size: 0.8rem;
+	opacity: 0.8;
+	text-transform: uppercase;
+}
+.act-value {
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+
+.two-col-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1rem 2rem;
+	background: #fff1;
+	border-radius: 15px;
+	padding: 1em;
+}
+.stat-pair {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.divider {
+	border: none;
+	margin: 1rem 0;
+	width: 100%;
+}
+.value {
+	font-weight: 700;
 }
 /* icons */
 .creator-icon {
@@ -274,12 +443,11 @@ export default {
 	justify-content: center;
 }
 .profile-button {
-	padding: 2px 8px 1px 8px;
+	padding: 0.6rem 1rem;
 	font-weight: bold;
 	background-color: var(--blue);
 	color: white;
-	font-size: 12px;
-	border-radius: 15px;
+	border-radius: 30px;
 	cursor: pointer;
 }
 </style>
