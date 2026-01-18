@@ -111,6 +111,26 @@ export default {
 		loaded() {
 			this.isLoading = false;
 		},
+
+		restoreLoginLocation() {
+			let currentLocation = localStorage.getItem('currentLocation');
+			localStorage.removeItem('currentLocation');
+			if (currentLocation) {
+				currentLocation = JSON.parse(currentLocation);
+
+				const user_id = currentLocation['user_id'];
+				const search = currentLocation['search'];
+				const tab = currentLocation['tab'] || 'tab_newest';
+
+				const query = {
+					tab,
+					user_id,
+					search,
+				};
+
+				this.$emit('tabChanged', query);
+			}
+		},
 	},
 	watch: {
 		'$route.query': {
@@ -123,6 +143,8 @@ export default {
 	},
 	created() {
 		document.title = 'GRAB Levels';
+
+		this.restoreLoginLocation();
 	},
 };
 </script>
